@@ -21,7 +21,10 @@ val testInputDir = testDir.resolve("input")!!
 val testOutputDir = testDir.resolve("output")!!
 
 // Input Files
-val REPS= testInputDir.resolve("testinput")!!
+val REPS= testInputDir.resolve("rep1.subsampled.25.fastq.gz")!!
+val CONTROL= testInputDir.resolve("ctl1.subsampled.25.fastq.gz")!!
+
 val BWAINDEXFILE= testInputDir.resolve("GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.tar")!!
 // Output File Names
-val REPS_OUTPUT= "testoutput"
+val REPS_OUTPUT= "rep_align_output"
+val CONTROL_OUTPUT= "control_align_output"

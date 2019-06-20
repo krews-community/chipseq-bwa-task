@@ -9,7 +9,7 @@ plugins {
 
 group = "com.genomealmanac.chipseq"
 version = "1.0.0"
-val artifactID = "chipseq-workflow-bwa-task"
+val artifactID = "chipseq-bwa"
 
 repositories {
     mavenCentral()

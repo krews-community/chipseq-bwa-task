@@ -19,4 +19,4 @@ COPY . /src
 RUN ./gradlew clean shadowJar
 
 FROM base
-COPY --from=build /src/build/chipseq-*.jar /app/chipseq.jar
+COPY --from=build /src/build/chipseq-bwa*.jar /app/chipseq.jar
