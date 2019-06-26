@@ -16,7 +16,7 @@ if ! [[ -x "$(command -v jq)" ]]; then
 fi
 
 # import common stuff
-source scripts/lib/common.sh
+. scripts/lib/common.sh
 
 TOKEN=$(curl -s -X POST \
     -H "Content-Type: application/json" \

@@ -5,63 +5,62 @@ import mu.KotlinLogging
 import step.*
 import util.*
 import java.nio.file.*
-
+import util.CmdRunner
 private val log = KotlinLogging.logger {}
+
+data class bwaInput(val name: String,val rep1:Path, val indexFile:Path,val rep2:Path?)
 
 fun main(args: Array<String>) = Cli().main(args)
 
 class Cli : CliktCommand() {
 
-    private val peaks by option("--peaks", help = "path to peaks in narrowPeak format")
-        .path(exists = true).required()
-    private val twoBit by option("--twobit", help = "path to two-bit file for this assembly")
-        .path(exists = true).required()
-    private val chromInfo by option("--chrom-info", help = "path to chromosome lengths for this assembly")
-        .path(exists = true).required()
-    private val offset by option("--offset", help = "offset, in bp, to shift peaks")
-        .int().default(0)
-    private val outputDir by option("--output-dir", help = "path to write output")
+
+    private val repFile1: List<Path> by option("-repFile1", help = "path to fastq rep file")
+        .path(exists = true).multiple().validate { require(it.isNotEmpty()) {"At least one path must be given"} }
+    private val repFile2: List<Path?> by option("-repFile2", help = "path to fastq rep2 file")
+            .path().multiple(listOf())
+    private val name: List<String> by option("-name", help = "name for output file")
+            .multiple().validate { require(it.isNotEmpty()) {"At least one name for output prefix must be given"} }
+    private val indexFile:List<Path> by option("-indexFile", help = "path to index tar file")
+        .path(exists = true).multiple().validate { require(it.isNotEmpty()) {"At least one index file path must be given"} }
+    private val outDir by option("-outputDir", help = "path to output Directory")
         .path().required()
 
     override fun run() {
         val cmdRunner = DefaultCmdRunner()
-        cmdRunner.runTask(peaks, twoBit, chromInfo, offset, outputDir)
+
+        val bwaInputs = mutableListOf<bwaInput>()
+        for( (rep1Index,rep1) in repFile1.withIndex())
+        {
+            val name = name.getOrElse(rep1Index) { name.last()}
+            val indexFile = indexFile.getOrElse(rep1Index) { indexFile.last()}
+            val rep2 = if(repFile2.isNullOrEmpty()) { null } else { repFile2.getOrElse(rep1Index)  { null}}
+            bwaInputs +=  bwaInput(name,rep1,indexFile,rep2)
+
+        }
+        cmdRunner.runTask(bwaInputs, outDir)
     }
 }
 
 /**
- * Runs pre-processing and meme for raw input files
+ * Runs pre-processing and bwa for raw input files
  *
- * @param peaks path to raw narrowPeaks file
- * @param chromInfo path to chromInfo file
- * @param offset
- * @param outputDir
+ * @param bwaInputs bwa Input
+ * @param outDir Output Path
  */
-fun CmdRunner.runTask(peaks: Path, twoBit: Path, chromInfo: Path, offset: Int, outputDir: Path) {
-    log.info {
-        """
-        Running Meme task for
-        peaks: $peaks
-        twoBit: $twoBit
-        chromInfo: $chromInfo
-        offset: $offset
-        outputDir: $outputDir
+fun CmdRunner.runTask(bwaInputs: List<bwaInput>, outDir: Path) {
+
+    for ( bi in bwaInputs) {
+        log.info {
+            """
+        Running bwa task for
+        rep1: ${bi.rep1}
+        indexFile: ${bi.indexFile}
+        outDir: $outDir
         """.trimIndent()
+        }
+
+
+        bwa(bi.rep1, bi.indexFile, outDir.resolve(bi.name),bi.rep2)
     }
-  /*  val outPrefix = peaks.fileName.toString().split(".").first()
-    val chromSizes = parseChromSizes(chromInfo)
-    val summitsFile = outputDir.resolve("$outPrefix.summits.window150.narrowPeak")
-    summits(peaks, chromSizes, 150, summitsFile, offset)
-
-    val ranges = mapOf("top500" to (0..500), "top501-1000" to (500..1000))
-    for ((rangePrefix, range) in ranges) {
-        val trimmedPeaksFile = outputDir.resolve("$outPrefix.$rangePrefix.narrowPeak.trimmed")
-        val seqsFile = outputDir.resolve("$outPrefix.$rangePrefix.seqs")
-        val centerSeqsFile = outputDir.resolve("$outPrefix.$rangePrefix.seqs.center")
-        val flankSeqsFile = outputDir.resolve("$outPrefix.$rangePrefix.seqs.flank")
-        sequences(summitsFile, twoBit, range, 100, trimmedPeaksFile, seqsFile, centerSeqsFile, flankSeqsFile)
-
-        val memeFile = outputDir.resolve("$outPrefix.$rangePrefix.center.meme")
-        meme(centerSeqsFile, memeFile)
-    }*/
 }

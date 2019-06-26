@@ -8,7 +8,7 @@ set -e
 cd "$(dirname "$(dirname "$0")")"
 
 # import common stuff
-source scripts/lib/common.sh
+. scripts/lib/common.sh
 
 # Exit if two args not given
 if [[ -z "$1" ]]; then
