@@ -1,22 +1,14 @@
 package testutil
 
-import org.assertj.core.api.Assertions.*
 import java.nio.file.*
 interface  Junk
-fun getResourcePath1(relativePath: String): Path {
-    val url = Junk::class.java.classLoader.getResource(relativePath)
-    return Paths.get(url.toURI())
-   // val url = TestCmdRunner::class.java.classLoader.getResource(relativePath)
-  //  return Paths.get(url.toURI())
-}
+
 fun getResourcePath(relativePath: String): Path {
 
     val url = TestCmdRunner::class.java.classLoader.getResource(relativePath)
      return Paths.get(url.toURI())
 }
 
-fun assertOutputMatches(filename: String) =
-    assertThat(testOutputDir.resolve(filename)).hasSameContentAs(testOutputResourcesDir.resolve(filename))!!
 
 // Resource Directories
 val testInputResourcesDir = getResourcePath("test-input-files")
@@ -48,3 +40,6 @@ val CNTRL =  tdr.resolve("ctl1.subsampled.25.fastq.gz")//getResourcePath1("rep1.
 val REPS1 =  tdr.resolve("rep1.subsampled.25.fastq.gz")//getResourcePath1("rep1.subsampled.25.fastq.gz")
 val BWAINDEX1 = tdr.resolve("GRCh38_no_alt_analysis_set_GCA_000001405.15.fasta.tar")
 val OUTDIR =  Paths.get("/home/nishiphalke/chipseq-bwa-task/src/test/resources/test-output-files")
+
+val SE1= testInputDir.resolve("ENCFF000ASP.fastq.gz")
+val CONTROLREP= testInputDir.resolve("ENCFF000ARK.fastq.gz")

@@ -6,7 +6,7 @@ import util.CmdRunner
 import kotlin.math.max
 
 
-fun CmdRunner.bwa(rep: Path,bwaIndexFile:Path,output: Path,rep2:Path?) {
+fun CmdRunner.bwa(rep: Path,bwaIndexFile:Path,pairedEnd: Boolean,use_bwa_mem_for_pe:Boolean,nth:Int,output: Path,rep2:Path?) {
     Files.createDirectories(output.parent)
     if(rep2!==null)
     {
@@ -27,11 +27,11 @@ fun CmdRunner.bwa(rep: Path,bwaIndexFile:Path,output: Path,rep2:Path?) {
     }
 
     var bam:String
-    if(rep2!==null)
+    if(pairedEnd==true && rep2!=null)
     {
-        bam= bwa_pe(rep,rep2,bwa_index_prefix,1,output)
+        bam= bwa_pe(rep,rep2,bwa_index_prefix,nth,use_bwa_mem_for_pe,output)
     } else {
-        bam= bwa_se(rep,bwa_index_prefix,1,output)
+        bam= bwa_se(rep,bwa_index_prefix,nth,output)
     }
 
     val si = samtools_index(bam)
@@ -56,6 +56,7 @@ fun CmdRunner.bwa_se(fastq:Path, bwa_index_prefix:Path, nth:Int, output: Path):S
     this.run("bwa samse $bwa_index_prefix $sai $fastq | samtools view -u - | samtools sort - -o $bam")
     rm_f(sai)
     return bam
+
 }
 fun CmdRunner.samtools_index(bam:String):String
 {
@@ -70,8 +71,9 @@ fun CmdRunner.samtools_flagstat(bam:String,output:Path):String
     return flagstat_qc
 }
 fun make_read_length_file(fastq:Path, output: Path){
+
     val read_length = get_read_length(fastq)
-   val fpath = output.parent.resolve(output.fileName.toString()+".read_length.txt")
+    val fpath = output.parent.resolve(output.fileName.toString()+".read_length.txt")
 
     Files.newBufferedWriter(fpath).use { writer ->
         writer.write(read_length.toString())
@@ -91,7 +93,6 @@ fun get_read_length(fastq:Path):Int {
 
     for (l in line) {
 
-
         if(line_num.rem(4)==1)
         {
             if(l.trim().length > max_length)
@@ -106,23 +107,34 @@ fun get_read_length(fastq:Path):Int {
         }
         line_num +=1
     }
-
     return max_length
 }
-fun CmdRunner.bwa_pe(fastq1:Path,fastq2:Path,bwa_index_prefix: Path,nth: Int,output: Path):String{
+fun CmdRunner.bwa_pe(fastq1:Path,fastq2:Path,bwa_index_prefix: Path,nth: Int,use_bwa_mem_for_pe:Boolean,output: Path):String{
 
     val sam="$output.sam"
     val badcigar = "$output.badReads"
     val bam = "$output.bam"
-    val sai1 = bwa_aln(fastq1,bwa_index_prefix, max(1,nth/2),output)
-    val sai2 = bwa_aln(fastq2,bwa_index_prefix, max(1,nth/2),output)
-    this.run("bwa sampe $bwa_index_prefix $sai1 $sai2 $fastq1 $fastq1 | gzip -nc > $sam")
-    var cmd2 = "zcat -f $sam | awk \'BEGIN {{FS='\\t' ; OFS='\\t'}} ! /^@/ && $6!='*' "
-    cmd2 += "{{ cigar=$6; gsub('[0-9]+D','',cigar); n = split(cigar,vals,'[A-Z]'); s = 0; "
-    cmd2 += "for (i=1;i<=n;i++) s=s+vals[i]; seqlen=length($10); "
-    cmd2 += "if (s!=seqlen) print $1'\\t'; }}\' | "
-    cmd2 += "sort | uniq > $badcigar"
+    var cmd2:String
+    val fastq1_read_length = get_read_length(fastq1)
+    if(use_bwa_mem_for_pe && fastq1_read_length>=70)
+    {
+        cmd2 = "bwa mem -M -t ${nth} ${bwa_index_prefix} ${fastq1} ${fastq2} | gzip -nc > ${sam}"
+
+    } else{
+
+        val sai1 = bwa_aln(fastq1,bwa_index_prefix, max(1,nth/2),output)
+        val sai2 = bwa_aln(fastq2,bwa_index_prefix, max(1,nth/2),output)
+
+        this.run("bwa sampe $bwa_index_prefix $sai1 $sai2 $fastq1 $fastq1 | gzip -nc > $sam")
+        cmd2 = "zcat -f $sam | awk \'BEGIN {{FS='\\t' ; OFS='\\t'}} ! /^@/ && $6!='*' "
+        cmd2 += "{{ cigar=$6; gsub('[0-9]+D','',cigar); n = split(cigar,vals,'[A-Z]'); s = 0; "
+        cmd2 += "for (i=1;i<=n;i++) s=s+vals[i]; seqlen=length($10); "
+        cmd2 += "if (s!=seqlen) print $1'\\t'; }}\' | "
+        cmd2 += "sort | uniq > $badcigar"
+    }
+
     this.run(cmd2)
+
     //find no. of lines in badcigar file
     val fpath = output.parent.resolve(output.fileName.toString()+".badReads")
     val rawInputStream = Files.newInputStream(fpath)
@@ -132,6 +144,7 @@ fun CmdRunner.bwa_pe(fastq1:Path,fastq2:Path,bwa_index_prefix: Path,nth: Int,out
 
     val line:List<String> = isr.readLines()
     val lineCount = line.size
+
     var cmd3:String
     if(lineCount>0){
         cmd3 = "zcat -f $sam | grep -v -F -f $badcigar | "

@@ -9,7 +9,7 @@ private val log = KotlinLogging.logger {}
 val cmdRunner = TestCmdRunner()
 
 class TestCmdRunner : CmdRunner {
-    override fun run(cmd: String) = exec("docker", "exec", "chipseq-base", "sh", "-c", cmd)
+    override fun run(cmd: String) = exec("docker", "exec", "chipseq-bwa-base", "sh", "-c", cmd)
 }
 
 fun copyDirectory(fromDir: Path, toDir: Path) {
@@ -27,7 +27,7 @@ fun setupTest() {
     // Copy all resource files from "test-input-files" and "test-output-files" dirs into
     // docker mounted working /tmp dir
     copyDirectory(testInputResourcesDir, testInputDir)
-    copyDirectory(testOutputResourcesDir, testOutputDir)
+  //  copyDirectory(testOutputResourcesDir, testOutputDir)
 }
 
 fun cleanupTest() {
@@ -39,4 +39,8 @@ fun cleanupTest() {
     if (Files.exists(testOutputDir)) {
         Files.walk(testOutputDir).sorted(Comparator.reverseOrder()).forEach { Files.delete(it) }
     }
+}
+
+fun CopyOpt() {
+    copyDirectory(testOutputDir, testOutputResourcesDir)
 }
