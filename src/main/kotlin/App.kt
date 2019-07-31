@@ -26,7 +26,7 @@ class Cli : CliktCommand() {
     private val outDir by option("-outputDir", help = "path to output Directory")
         .path().required()
     private val pairedEnd: Boolean by option("-pairedEnd", help = "Paired-end BAM.").flag()
-    private val use_bwa_mem_for_pe: Boolean by option("-use-bwa-mem-for-pe", help = "Paired-end BAM.").flag()
+    private val useBwaMemForPe: Boolean by option("-use-bwa-mem-for-pe", help = "Paired-end BAM.").flag()
     private val parallelism: Int by option("-parallelism", help = "Number of threads to parallelize.").int().default(1)
 
 
@@ -42,7 +42,7 @@ class Cli : CliktCommand() {
             bwaInputs +=  bwaInput(name,rep1,indexFile,rep2)
 
         }
-        cmdRunner.runTask(bwaInputs,pairedEnd,use_bwa_mem_for_pe,parallelism, outDir)
+        cmdRunner.runTask(bwaInputs,pairedEnd,useBwaMemForPe,parallelism, outDir)
     }
 }
 
@@ -52,19 +52,20 @@ class Cli : CliktCommand() {
  * @param bwaInputs bwa Input
  * @param outDir Output Path
  */
-fun CmdRunner.runTask(bwaInputs: List<bwaInput>,pairedEnd: Boolean,use_bwa_mem_for_pe:Boolean,nth:Int, outDir: Path) {
+fun CmdRunner.runTask(bwaInputs: List<bwaInput>,pairedEnd: Boolean,useBwaMemForPe:Boolean,nth:Int, outDir: Path) {
 
     for ( bi in bwaInputs) {
         log.info {
             """
         Running bwa task for
         rep1: ${bi.rep1}
+        rep2: ${bi.rep2}
         indexFile: ${bi.indexFile}
         outDir: $outDir
         """.trimIndent()
         }
 
 
-        bwa(bi.rep1, bi.indexFile,pairedEnd,use_bwa_mem_for_pe, nth,outDir.resolve(bi.name),bi.rep2)
+        bwa(bi.rep1, bi.indexFile,pairedEnd,useBwaMemForPe, nth,outDir.resolve(bi.name),bi.rep2)
     }
 }

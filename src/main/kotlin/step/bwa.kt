@@ -6,7 +6,7 @@ import util.CmdRunner
 import kotlin.math.max
 
 
-fun CmdRunner.bwa(rep: Path,bwaIndexFile:Path,pairedEnd: Boolean,use_bwa_mem_for_pe:Boolean,nth:Int,output: Path,rep2:Path?) {
+fun CmdRunner.bwa(rep: Path,bwaIndexFile:Path,pairedEnd: Boolean,useBwaMemForPe:Boolean,nth:Int,output: Path,rep2:Path?) {
     Files.createDirectories(output.parent)
     if(rep2!==null)
     {
@@ -29,7 +29,7 @@ fun CmdRunner.bwa(rep: Path,bwaIndexFile:Path,pairedEnd: Boolean,use_bwa_mem_for
     var bam:String
     if(pairedEnd==true && rep2!=null)
     {
-        bam= bwa_pe(rep,rep2,bwa_index_prefix,nth,use_bwa_mem_for_pe,output)
+        bam= bwa_pe(rep,rep2,bwa_index_prefix,nth,useBwaMemForPe,output)
     } else {
         bam= bwa_se(rep,bwa_index_prefix,nth,output)
     }
@@ -38,7 +38,7 @@ fun CmdRunner.bwa(rep: Path,bwaIndexFile:Path,pairedEnd: Boolean,use_bwa_mem_for
     val sf = samtools_flagstat(bam,output)
 }
 
-fun CmdRunner.bwa_aln(fastq:Path, bwa_index_prefix:Path, nth:Int, output: Path):String
+fun CmdRunner.bwa_aln(fastq:Path, bwa_index_prefix:Path, nth:Int, output: String):String
 {
     val sai = "$output.sai"
     //run bwa
@@ -46,15 +46,11 @@ fun CmdRunner.bwa_aln(fastq:Path, bwa_index_prefix:Path, nth:Int, output: Path):
     return sai
 }
 
-fun CmdRunner.rm_f(file: String)
-{
-    this.run("rm -f $file")
-}
 fun CmdRunner.bwa_se(fastq:Path, bwa_index_prefix:Path, nth:Int, output: Path):String{
     val bam = "$output.bam"
-    val sai = bwa_aln(fastq,bwa_index_prefix,nth,output)
-    this.run("bwa samse $bwa_index_prefix $sai $fastq | samtools view -u - | samtools sort - -o $bam")
-    rm_f(sai)
+    val sai = bwa_aln(fastq,bwa_index_prefix,nth,output.toString())
+    this.run("bwa samse $bwa_index_prefix $sai $fastq | samtools view -Su - | samtools sort - -o $bam")
+    rm_f(listOf(sai))
     return bam
 
 }
@@ -109,27 +105,29 @@ fun get_read_length(fastq:Path):Int {
     }
     return max_length
 }
-fun CmdRunner.bwa_pe(fastq1:Path,fastq2:Path,bwa_index_prefix: Path,nth: Int,use_bwa_mem_for_pe:Boolean,output: Path):String{
+fun CmdRunner.bwa_pe(fastq1:Path,fastq2:Path,bwa_index_prefix: Path,nth: Int,useBwaMemForPe:Boolean,output: Path):String{
 
     val sam="$output.sam"
     val badcigar = "$output.badReads"
     val bam = "$output.bam"
     var cmd2:String
+    var sai1=""
+    var sai2=""
     val fastq1_read_length = get_read_length(fastq1)
-    if(use_bwa_mem_for_pe && fastq1_read_length>=70)
+    if(useBwaMemForPe && fastq1_read_length>=70)
     {
         cmd2 = "bwa mem -M -t ${nth} ${bwa_index_prefix} ${fastq1} ${fastq2} | gzip -nc > ${sam}"
 
     } else{
 
-        val sai1 = bwa_aln(fastq1,bwa_index_prefix, max(1,nth/2),output)
-        val sai2 = bwa_aln(fastq2,bwa_index_prefix, max(1,nth/2),output)
+         sai1 = bwa_aln(fastq1,bwa_index_prefix, max(1,nth/2),output.toString()+"fstq1")
+         sai2 = bwa_aln(fastq2,bwa_index_prefix, max(1,nth/2),output.toString()+"fstq2")
 
         this.run("bwa sampe $bwa_index_prefix $sai1 $sai2 $fastq1 $fastq1 | gzip -nc > $sam")
-        cmd2 = "zcat -f $sam | awk \'BEGIN {{FS='\\t' ; OFS='\\t'}} ! /^@/ && $6!='*' "
-        cmd2 += "{{ cigar=$6; gsub('[0-9]+D','',cigar); n = split(cigar,vals,'[A-Z]'); s = 0; "
+        cmd2 = "zcat -f $sam | awk \'BEGIN {{FS=\"\\t\" ; OFS=\"\\t\"}} ! /^@/ && $6!=\"*\" "
+        cmd2 += "{{ cigar=$6; gsub(\"[0-9]+D\",\"\",cigar); n = split(cigar,vals,\"[A-Z]\"); s = 0; "
         cmd2 += "for (i=1;i<=n;i++) s=s+vals[i]; seqlen=length($10); "
-        cmd2 += "if (s!=seqlen) print $1'\\t'; }}\' | "
+        cmd2 += "if (s!=seqlen) print $1\"\\t\"; }}\' | "
         cmd2 += "sort | uniq > $badcigar"
     }
 
@@ -156,6 +154,8 @@ fun CmdRunner.bwa_pe(fastq1:Path,fastq2:Path,bwa_index_prefix: Path,nth: Int,use
 
     }
     this.run(cmd3)
+
+    rm_f(listOf(sai1,sai2,sam))
     return bam
 
 }
