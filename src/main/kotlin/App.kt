@@ -23,6 +23,8 @@ class Cli : CliktCommand() {
             .multiple().validate { require(it.isNotEmpty()) {"At least one name for output prefix must be given"} }
     private val indexFile:List<Path> by option("-indexFile", help = "path to index tar file")
         .path(exists = true).multiple().validate { require(it.isNotEmpty()) {"At least one index file path must be given"} }
+    private val bwa_index_prefix: String? by option("-indexprefix", help = "Number of threads to parallelize.")
+
     private val outDir by option("-outputDir", help = "path to output Directory")
         .path().required()
     private val pairedEnd: Boolean by option("-pairedEnd", help = "Paired-end BAM.").flag()
@@ -42,7 +44,7 @@ class Cli : CliktCommand() {
             bwaInputs +=  bwaInput(name,rep1,indexFile,rep2)
 
         }
-        cmdRunner.runTask(bwaInputs,pairedEnd,useBwaMemForPe,parallelism, outDir)
+        cmdRunner.runTask(bwaInputs,pairedEnd,useBwaMemForPe,parallelism, outDir,bwa_index_prefix)
     }
 }
 
@@ -52,7 +54,7 @@ class Cli : CliktCommand() {
  * @param bwaInputs bwa Input
  * @param outDir Output Path
  */
-fun CmdRunner.runTask(bwaInputs: List<bwaInput>,pairedEnd: Boolean,useBwaMemForPe:Boolean,nth:Int, outDir: Path) {
+fun CmdRunner.runTask(bwaInputs: List<bwaInput>,pairedEnd: Boolean,useBwaMemForPe:Boolean,nth:Int, outDir: Path,bwa_index_prefix:String?) {
 
     for ( bi in bwaInputs) {
         log.info {
@@ -66,6 +68,6 @@ fun CmdRunner.runTask(bwaInputs: List<bwaInput>,pairedEnd: Boolean,useBwaMemForP
         }
 
 
-        bwa(bi.rep1, bi.indexFile,pairedEnd,useBwaMemForPe, nth,outDir.resolve(bi.name),bi.rep2)
+        bwa(bi.rep1, bi.indexFile,pairedEnd,useBwaMemForPe, nth,outDir.resolve(bi.name),bi.rep2,bwa_index_prefix)
     }
 }
